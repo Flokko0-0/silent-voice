@@ -1,0 +1,348 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Беззвучный голос — чтение по губам для тех, кто не может говорить</title>
+  <meta name="description" content="Беззвучный голос читает по губам людей, потерявших голос, и произносит фразы за них. Русский и казахский, работает на ноутбуке без интернета." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=PT+Mono&family=PT+Sans:ital,wght@0,400;0,700;1,400&family=PT+Serif:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --paper: #f3f1ec;
+      --sheet: #fbfaf7;
+      --ink: #1a1a18;
+      --ink-2: #4a4843;
+      --muted: #8a867d;
+      --rule: #d8d4ca;
+      --signal: #1f5f4a;
+      --alarm: #c3321f;
+      --serif: "PT Serif", Georgia, serif;
+      --sans: "PT Sans", "Segoe UI", Arial, sans-serif;
+      --mono: "PT Mono", ui-monospace, Consolas, monospace;
+      --margin: 150px;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--sans); font-size: 17px; line-height: 1.5; }
+    a { color: inherit; }
+    .wrap { max-width: 1240px; margin: 0 auto; padding: 0 32px; }
+
+    /* masthead */
+    .mast { border-bottom: 2px solid var(--ink); background: var(--sheet); }
+    .mast .wrap { display: flex; align-items: baseline; gap: 32px; padding-top: 16px; padding-bottom: 12px; }
+    .wordmark { font-family: var(--serif); font-weight: 700; font-size: 22px; text-decoration: none; }
+    .wordmark small { font-family: var(--sans); font-weight: 400; font-size: 13px; color: var(--muted); margin-left: 8px; }
+    .mast nav { display: flex; gap: 22px; flex: 1; font-size: 14px; }
+    .mast nav a { text-decoration: none; color: var(--ink-2); }
+    .mast nav a:hover { color: var(--ink); text-decoration: underline; text-underline-offset: 4px; }
+    .issue { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+
+    .btn { display: inline-block; padding: 11px 20px; border: 1px solid var(--ink); text-decoration: none; font-weight: 700; font-size: 15px; }
+    .btn.solid { background: var(--ink); color: var(--sheet); }
+    .btn.solid:hover { background: #000; }
+    .btn:not(.solid):hover { background: var(--sheet); }
+
+    /* hero */
+    .hero { display: grid; grid-template-columns: 1.15fr 1fr; gap: 56px; padding: 64px 0 56px; border-bottom: 1px solid var(--rule); }
+    .kicker { font-family: var(--mono); font-size: 12px; letter-spacing: .06em; color: var(--muted); text-transform: uppercase; }
+    h1 { font-family: var(--serif); font-weight: 700; font-size: 58px; line-height: 1.02; letter-spacing: -.015em; margin: 14px 0 22px; }
+    h1 em { font-weight: 400; }
+    .lede { font-size: 20px; line-height: 1.45; color: var(--ink-2); max-width: 34em; margin: 0 0 28px; }
+    .actions { display: flex; gap: 12px; flex-wrap: wrap; }
+
+    figure { margin: 0; }
+    figcaption { font-size: 13px; color: var(--ink-2); margin-top: 10px; line-height: 1.4; }
+    figcaption b { font-family: var(--mono); font-weight: 400; color: var(--ink); margin-right: 4px; }
+    .hero-fig { border: 1px solid var(--ink); background: var(--sheet); padding: 18px 18px 14px; align-self: start; }
+    .hero-fig svg { width: 100%; height: auto; display: block; }
+    .hero-fig .readout { display: flex; justify-content: space-between; align-items: baseline; border-top: 1px solid var(--rule); padding-top: 10px; margin-top: 6px; }
+    .said { font-family: var(--serif); font-size: 30px; font-weight: 700; opacity: 0; transition: opacity .25s; }
+    .said.on { opacity: 1; }
+    .frame-no { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+
+    /* sections */
+    section.chapter { display: grid; grid-template-columns: var(--margin) 1fr; gap: 32px; padding: 56px 0; border-bottom: 1px solid var(--rule); }
+    .num { font-family: var(--mono); font-size: 13px; color: var(--muted); padding-top: 10px; border-top: 2px solid var(--ink); align-self: start; }
+    .num b { display: block; font-family: var(--serif); font-size: 38px; color: var(--ink); line-height: 1; margin-bottom: 6px; }
+    h2 { font-family: var(--serif); font-size: 36px; line-height: 1.1; margin: 0 0 18px; letter-spacing: -.01em; max-width: 22em; }
+    h2 em { font-weight: 400; }
+    .body { max-width: 44em; color: var(--ink-2); }
+    .body p { margin: 0 0 14px; }
+
+    .figures { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; margin-top: 30px; border-top: 1px solid var(--ink); }
+    .figures div { padding: 16px 20px 0 0; }
+    .figures div + div { padding-left: 20px; border-left: 1px solid var(--rule); }
+    .figures .n { font-family: var(--serif); font-size: 44px; font-weight: 700; line-height: 1; }
+    .figures p { margin: 8px 0 0; font-size: 15px; color: var(--ink-2); }
+    .figures sup a { font-family: var(--mono); font-size: 11px; color: var(--muted); text-decoration: none; }
+
+    .steps { list-style: none; margin: 30px 0 0; padding: 0; display: grid; grid-template-columns: repeat(4, 1fr); border-top: 1px solid var(--ink); }
+    .steps li { padding: 14px 18px 0 0; }
+    .steps li + li { padding-left: 18px; border-left: 1px solid var(--rule); }
+    .steps .k { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+    .steps h3 { font-family: var(--serif); font-size: 21px; margin: 4px 0 8px; }
+    .steps p { margin: 0; font-size: 15px; color: var(--ink-2); }
+
+    .prints { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; margin-top: 26px; border-top: 1px solid var(--ink); border-left: 1px solid var(--rule); }
+    .print { border-right: 1px solid var(--rule); border-bottom: 1px solid var(--rule); padding: 12px 14px 8px; background: var(--sheet); }
+    .print h4 { margin: 0; font-family: var(--serif); font-size: 18px; }
+    .print span { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+    .print svg { width: 100%; height: auto; display: block; margin-top: 6px; }
+
+    table.data { width: 100%; border-collapse: collapse; margin-top: 22px; font-size: 15px; }
+    table.data th { text-align: left; font-family: var(--mono); font-weight: 400; font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; border-bottom: 1px solid var(--ink); padding: 8px 12px 8px 0; }
+    table.data td { border-bottom: 1px solid var(--rule); padding: 11px 12px 11px 0; vertical-align: top; color: var(--ink-2); }
+    table.data td:first-child { color: var(--ink); font-weight: 700; }
+    table.data .val { font-family: var(--mono); color: var(--ink); white-space: nowrap; }
+    table.data tr.best td { background: var(--sheet); }
+    table.data tr.best .val { color: var(--signal); font-weight: 700; }
+    .bar { display: inline-block; height: 8px; background: var(--ink); vertical-align: middle; margin-right: 8px; }
+    tr.best .bar { background: var(--signal); }
+    .note { font-size: 13px; color: var(--muted); margin-top: 12px; max-width: 48em; }
+
+    .pull { font-family: var(--serif); font-style: italic; font-size: 26px; line-height: 1.3; border-left: 3px solid var(--ink); padding-left: 20px; margin: 28px 0 0; max-width: 30em; color: var(--ink); }
+
+    footer { padding: 40px 0 60px; font-size: 13px; color: var(--ink-2); }
+    footer ol { padding-left: 20px; margin: 10px 0 24px; columns: 2; column-gap: 40px; }
+    footer li { margin-bottom: 6px; break-inside: avoid; }
+    footer .fine { color: var(--muted); border-top: 1px solid var(--rule); padding-top: 14px; }
+
+    @media (max-width: 960px) {
+      :root { --margin: 1fr; }
+      .mast nav, .issue { display: none; }
+      .hero { grid-template-columns: 1fr; padding-top: 36px; }
+      h1 { font-size: 40px; }
+      section.chapter { grid-template-columns: 1fr; gap: 12px; }
+      .figures, .steps, .prints { grid-template-columns: 1fr; }
+      .figures div + div, .steps li + li { border-left: 0; padding-left: 0; border-top: 1px solid var(--rule); }
+      footer ol { columns: 1; }
+    }
+  </style>
+</head>
+<body>
+  <header class="mast">
+    <div class="wrap">
+      <a class="wordmark" href="#">Беззвучный голос<small>Үнсіз дауыс</small></a>
+      <nav>
+        <a href="#problem">Проблема</a>
+        <a href="#how">Как работает</a>
+        <a href="#prints">Отпечатки фраз</a>
+        <a href="#accuracy">Точность</a>
+        <a href="#compare">Сравнение</a>
+        <a href="#next">Внедрение</a>
+      </nav>
+      <span class="issue">VentureHack 2026 · Трек 1 · MedTech</span>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <div class="hero">
+      <div>
+        <div class="kicker">Чтение по губам · русский и казахский · без интернета</div>
+        <h1>Человек в сознании. Ему больно. <em>Он не может это сказать.</em></h1>
+        <p class="lede">После трахеостомии, удаления гортани или инсульта человек теряет голос, но продолжает двигать губами. «Беззвучный голос» смотрит на губы через обычную камеру, понимает фразу и произносит её вслух, а срочные просьбы сразу передаёт медсестре на телефон.</p>
+        <div class="actions">
+          <a class="btn solid" href="app.html">Открыть прототип</a>
+          <a class="btn" href="#how">Как это работает</a>
+        </div>
+      </div>
+      <figure class="hero-fig">
+        <svg id="hero-svg" viewBox="-0.62 -0.36 1.24 0.66" aria-label="Анимация контура губ">
+          <line x1="-0.6" y1="0" x2="0.6" y2="0" stroke="#d8d4ca" stroke-width="0.003" />
+          <line x1="0" y1="-0.34" x2="0" y2="0.28" stroke="#d8d4ca" stroke-width="0.003" />
+          <path id="hero-outer" fill="none" stroke="#1a1a18" stroke-width="0.012" stroke-linejoin="round" />
+          <path id="hero-inner" fill="none" stroke="#1a1a18" stroke-width="0.006" stroke-linejoin="round" />
+          <g id="hero-dots"></g>
+        </svg>
+        <div class="readout">
+          <span id="hero-said" class="said">«Хочу пить»</span>
+          <span id="hero-frame" class="frame-no">кадр 0/0</span>
+        </div>
+        <figcaption><b>Рис. 1.</b> Движение 40 точек контура губ из настоящей записи калибровки: фраза «Хочу пить», произнесённая беззвучно, 30 кадров в секунду. Так её видит система.</figcaption>
+      </figure>
+    </div>
+
+    <section class="chapter" id="problem">
+      <div class="num"><b>01</b>Проблема</div>
+      <div>
+        <h2>Голоса нет, <em>а сказать нужно прямо сейчас</em></h2>
+        <div class="body">
+          <p>Когда человек дольше пяти суток на искусственной вентиляции лёгких, ему ставят трахеостому: трубку в горло. Воздух идёт мимо голосовых связок, и голос пропадает. Пациент в сознании: ему больно, холодно, хочется пить, страшно. Но сказать он может только губами.</p>
+          <p>Сегодня его «слушают» так: медсестра пытается читать по губам или даёт листок и ручку. После операции и на капельницах писать почти невозможно. Просьба «трудно дышать» может остаться непонятой.</p>
+        </div>
+        <div class="figures">
+          <div><div class="n">≈50 000</div><p>инсультов в год в Казахстане; после многих из них речь нарушена надолго<sup><a href="#s1">[1]</a></sup></p></div>
+          <div><div class="n">&gt; 5 суток</div><p>на ИВЛ — показание к трахеостомии, после которой пациент не может говорить<sup><a href="#s3">[3]</a></sup></p></div>
+          <div><div class="n">2,6–2,7</div><p>случая рака гортани на 100 000 человек в РК; после удаления гортани голос не вернётся<sup><a href="#s4">[4]</a></sup></p></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="chapter" id="how">
+      <div class="num"><b>02</b>Как работает</div>
+      <div>
+        <h2>Две минуты настройки, <em>дальше — разговор</em></h2>
+        <div class="body">
+          <p>Система не угадывает любые слова. Она выучивает короткий набор фраз, которые нужны пациенту: «Хочу пить», «Позовите врача», «Трудно дышать». Благодаря этому она работает на любом языке, в том числе на казахском, и не требует огромной базы данных.</p>
+        </div>
+        <ol class="steps">
+          <li><span class="k">шаг 1</span><h3>Калибровка</h3><p>Пациент беззвучно произносит каждую фразу пять раз. Около двух минут на весь набор.</p></li>
+          <li><span class="k">шаг 2</span><h3>Чтение губ</h3><p>Камера находит 478 точек лица. Нейросеть, обученная на сотнях часов видео, превращает движение губ в «отпечаток» и сравнивает с образцами.</p></li>
+          <li><span class="k">шаг 3</span><h3>Подтверждение</h3><p>Система переспрашивает: «Хочу пить?». Пациент показывает большой палец вверх. Ошибка не превращается в ложный вызов.</p></li>
+          <li><span class="k">шаг 4</span><h3>Голос и сигнал</h3><p>Фраза звучит вслух. Срочная приходит медсестре на телефон, а пациент видит ответ: «Медсестра идёт к вам».</p></li>
+        </ol>
+        <p class="pull">Если рука слушается, хватает жеста: открытая ладонь означает «Позовите врача», кулак — «Мне больно». Без всякой калибровки.</p>
+      </div>
+    </section>
+
+    <section class="chapter" id="prints">
+      <div class="num"><b>03</b>Отпечатки фраз</div>
+      <div>
+        <h2>У каждой фразы <em>своя форма</em></h2>
+        <div class="body">
+          <p>Ниже — насколько раскрыт рот в каждый момент фразы. Каждая линия — отдельный повтор той же фразы тем же человеком. Повторы одной фразы похожи друг на друга и не похожи на другие фразы. На этом держится распознавание.</p>
+        </div>
+        <div class="prints" id="prints-grid"></div>
+        <p class="note"><b>Рис. 2.</b> Раскрытие внутреннего контура губ во времени (по вертикали), длительность фраз приведена к одной ширине. Данные — калибровка автора прототипа, 23 сентября 2026.</p>
+      </div>
+    </section>
+
+    <section class="chapter" id="accuracy">
+      <div class="num"><b>04</b>Точность</div>
+      <div>
+        <h2>91% с пяти образцов, <em>и мы честно покажем, как считали</em></h2>
+        <div class="body">
+          <p>Готовую нейросеть чтения по губам обучали на английских видео. Её последний слой «думает» английскими словами и русские фразы путает. Мы взяли ранний слой, который описывает только форму и движение губ, и вычли из записей то, что у них общее: лицо, свет, губы в покое. Точность выросла с 69% до 91%.</p>
+        </div>
+        <table class="data">
+          <thead><tr><th>Способ распознавания</th><th>Точность</th><th></th></tr></thead>
+          <tbody>
+            <tr><td>Точки губ MediaPipe + сравнение DTW</td><td class="val">71%</td><td><span class="bar" style="width:142px"></span></td></tr>
+            <tr><td>Нейросеть Auto-AVSR, последний слой</td><td class="val">69%</td><td><span class="bar" style="width:138px"></span></td></tr>
+            <tr class="best"><td>Нейросеть, ранний слой + центрирование</td><td class="val">91%</td><td><span class="bar" style="width:182px"></span></td></tr>
+            <tr><td>То же: правильная фраза среди трёх вариантов</td><td class="val">97–100%</td><td><span class="bar" style="width:197px"></span></td></tr>
+          </tbody>
+        </table>
+        <p class="note">Проверка: каждая запись распознаётся по всем остальным (leave-one-out). 35 записей, 7 фраз, один человек, обычная веб-камера ноутбука. Это прототип: на пациентах система пока не испытывалась.</p>
+      </div>
+    </section>
+
+    <section class="chapter" id="compare">
+      <div class="num"><b>05</b>Сравнение</div>
+      <div>
+        <h2>Идея доказана в Британии. <em>Для нас её нет.</em></h2>
+        <div class="body">
+          <p>Британская система SRAVI с 2019 года проходит испытания в больницах NHS и распознаёт фразы пациентов с трахеостомией с точностью выше 90%<sup><a href="#s5">[5]</a></sup>. Значит, подход работает и нужен. Но SRAVI понимает только английский и доступна только больницам.</p>
+        </div>
+        <table class="data">
+          <thead><tr><th></th><th>Листок и ручка</th><th>SRAVI (Великобритания)</th><th>Беззвучный голос</th></tr></thead>
+          <tbody>
+            <tr><td>Языки</td><td>любой</td><td>английский</td><td>русский, казахский, любой после калибровки</td></tr>
+            <tr><td>Нужны силы в руках</td><td>да</td><td>нет</td><td>нет</td></tr>
+            <tr><td>Где обрабатывается видео</td><td>—</td><td>на сервере</td><td>на устройстве, без интернета</td></tr>
+            <tr><td>Кому доступно</td><td>всем</td><td>больницам по запросу</td><td>любой ноутбук или планшет с камерой</td></tr>
+            <tr><td>Сигнал медсестре</td><td>нет</td><td>нет</td><td>да, на телефон</td></tr>
+            <tr><td>Стадия</td><td>—</td><td>клинические испытания</td><td>рабочий прототип</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="chapter" id="next">
+      <div class="num"><b>06</b>Внедрение</div>
+      <div>
+        <h2>Планшет у кровати, <em>а не новый аппарат</em></h2>
+        <div class="body">
+          <p><b>Где:</b> отделения реанимации, онкологические центры (пациенты после удаления гортани), реабилитация после инсульта, уход на дому.</p>
+          <p><b>Что нужно:</b> любой планшет или ноутбук с камерой. Видео не покидает устройство, поэтому персональные данные пациента остаются в палате. Система ничего не диагностирует, это средство общения.</p>
+          <p><b>Что дальше:</b> дообучить модель на открытых корпусах QazLip (≈34 000 видео на казахском, Nature Scientific Data, 2025)<sup><a href="#s6">[6]</a></sup> и LRWR (117 500 видео на русском)<sup><a href="#s7">[7]</a></sup>, чтобы частые фразы узнавались без калибровки. Затем пилот с одним отделением реанимации: доля понятых просьб и время реакции медсестры до и после.</p>
+        </div>
+        <div class="actions" style="margin-top:26px">
+          <a class="btn solid" href="app.html">Открыть прототип</a>
+          <a class="btn" href="nurse.html">Пост медсестры</a>
+        </div>
+      </div>
+    </section>
+
+    <footer>
+      <b>Источники</b>
+      <ol>
+        <li id="s1">Kazpravda: «Ежегодно в Казахстане регистрируется около 40 тысяч случаев инсульта»; Tengrinews: «Сколько стоит инсульт в Казахстане» (≈50 000 в 2025 г.).</li>
+        <li id="s2">Inform.kz: инвалидность после инсульта — 11 008 человек в 2025 г.</li>
+        <li id="s3">Волынская больница: «Трахеостомия в практике врача-реаниматолога».</li>
+        <li id="s4">«Эпидемиология рака гортани в Казахстане в 2008–2017 годах», КиберЛенинка.</li>
+        <li id="s5">SRAVI (Liopa), испытания Lancashire Teaching Hospitals NHS; ClinicalTrials.gov NCT06027866.</li>
+        <li id="s6">A Kazakh language Dataset of Lip Movements for Command Recognition, Scientific Data, 2025.</li>
+        <li id="s7">LRWR: Large-Scale Benchmark for Lip Reading in Russian language, arXiv:2109.06692.</li>
+        <li id="s8">Ma P. et al. Auto-AVSR: Audio-Visual Speech Recognition with Automatic Labels, 2023.</li>
+      </ol>
+      <div class="fine">Прототип для VentureHack 2026. Не является медицинским изделием. Видео обрабатывается на устройстве и никуда не отправляется.</div>
+    </footer>
+  </main>
+
+  <script type="module">
+    import data from './landing-data.js';
+
+    // Hero: replay the recorded lip contour frame by frame, then show the phrase.
+    const outer = document.getElementById('hero-outer');
+    const inner = document.getElementById('hero-inner');
+    const dots = document.getElementById('hero-dots');
+    const said = document.getElementById('hero-said');
+    const frameNo = document.getElementById('hero-frame');
+    const frames = data.hero.frames;
+    const path = (pts) => 'M' + pts.map(([x, y]) => `${x},${y}`).join('L') + 'Z';
+    const NS = 'http://www.w3.org/2000/svg';
+    const dotEls = frames[0].map(() => {
+      const c = document.createElementNS(NS, 'circle');
+      c.setAttribute('r', '0.006');
+      c.setAttribute('fill', '#1a1a18');
+      dots.append(c);
+      return c;
+    });
+    function draw(i) {
+      const f = frames[i];
+      outer.setAttribute('d', path(f.slice(0, 20)));
+      inner.setAttribute('d', path(f.slice(20)));
+      f.forEach(([x, y], k) => { dotEls[k].setAttribute('cx', x); dotEls[k].setAttribute('cy', y); });
+      frameNo.textContent = `кадр ${String(i + 1).padStart(2, '0')}/${frames.length}`;
+    }
+    let i = 0;
+    let last = 0;
+    let hold = 0;
+    const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    function tick(t) {
+      requestAnimationFrame(tick);
+      if (t - last < 1000 / data.hero.fps) return;
+      last = t;
+      if (hold > 0) { hold--; if (!hold) { said.classList.remove('on'); i = 0; } return; }
+      draw(i);
+      i++;
+      if (i >= frames.length) { said.classList.add('on'); hold = 60; }
+    }
+    draw(Math.floor(frames.length / 3));
+    if (!reduce) requestAnimationFrame(tick); else said.classList.add('on');
+
+    // Fingerprints: small multiples of mouth opening over time, one line per repetition.
+    const grid = document.getElementById('prints-grid');
+    const all = data.fingerprints.flatMap((f) => f.takes.flat());
+    const lo = Math.min(...all);
+    const hi = Math.max(...all);
+    const W = 240;
+    const H = 90;
+    for (const f of data.fingerprints) {
+      if (!f.takes.length) continue;
+      const el = document.createElement('div');
+      el.className = 'print';
+      const lines = f.takes.map((take) => {
+        const d = take.map((v, k) => `${k ? 'L' : 'M'}${((k / (take.length - 1)) * W).toFixed(1)},${(H - 6 - ((v - lo) / (hi - lo)) * (H - 12)).toFixed(1)}`).join('');
+        return `<path d="${d}" fill="none" stroke="#1a1a18" stroke-opacity=".55" stroke-width="1.3" />`;
+      }).join('');
+      el.innerHTML = `<h4>«${f.text}»</h4><span>${f.takes.length} ${f.takes.length >= 5 ? 'повторов' : 'повтора'}</span>
+        <svg viewBox="0 0 ${W} ${H}"><line x1="0" y1="${H - 6}" x2="${W}" y2="${H - 6}" stroke="#d8d4ca" />${lines}</svg>`;
+      grid.append(el);
+    }
+  </script>
+</body>
+</html>

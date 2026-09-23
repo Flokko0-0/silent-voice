@@ -1,0 +1,13 @@
+# Python environment and downloaded model (see README: «Нейросеть»)
+ml/.venv/
+ml/__pycache__/
+ml/auto_avsr-main/
+ml/pytorch_model.pt
+# Calibration recordings contain face crops — never publish them
+ml/data/
+*.npy
+*.npz
+
+node_modules/
+.DS_Store
+Thumbs.db

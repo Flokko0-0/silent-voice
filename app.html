@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Беззвучный голос</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=PT+Sans:wght@400;700&family=PT+Mono&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-name">Беззвучный голос</div>
+      <div class="brand-sub">Үнсіз дауыс</div>
+    </div>
+
+    <dl class="meta">
+      <div>
+        <dt>Пациент</dt>
+        <dd id="patient-chip-name">—</dd>
+      </div>
+      <div>
+        <dt>Отделение</dt>
+        <dd id="patient-chip-ward">—</dd>
+      </div>
+      <div>
+        <dt>Распознавание</dt>
+        <dd id="neural-badge" class="off">точки губ</dd>
+      </div>
+      <div>
+        <dt>Состояние</dt>
+        <dd id="status">загрузка</dd>
+      </div>
+    </dl>
+
+    <div class="lang-switch" role="group" aria-label="Язык">
+      <button data-lang="ru" class="active">Рус</button>
+      <button data-lang="kk">Қаз</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <section class="stage-col">
+      <div class="stage">
+        <video id="video" autoplay playsinline muted></video>
+        <canvas id="overlay"></canvas>
+        <div id="prompt" class="prompt hidden"></div>
+      </div>
+
+      <div class="meter-row">
+        <span class="label">Движение губ</span>
+        <div class="meter">
+          <div id="meter-fill" class="meter-fill"></div>
+          <div id="meter-start" class="meter-mark start" title="Порог начала"></div>
+          <div id="meter-end" class="meter-mark end" title="Порог окончания"></div>
+        </div>
+        <button id="hold-btn" class="link" title="Или удерживайте пробел">удерживать, пока говорю</button>
+      </div>
+
+      <div class="output">
+        <div class="output-head">
+          <span class="label">Сообщение</span>
+          <span id="output-source" class="source"></span>
+        </div>
+        <div id="output-text" class="output-text muted">Скажите фразу беззвучно, одними губами</div>
+        <div id="alternatives" class="alternatives"></div>
+        <div id="nurse-ack" class="nurse-ack hidden"></div>
+      </div>
+    </section>
+
+    <aside class="panel">
+      <nav class="tabs">
+        <button data-tab="talk" class="active">Разговор</button>
+        <button data-tab="calib">Калибровка</button>
+        <button data-tab="settings">Настройки</button>
+      </nav>
+
+      <div data-pane="talk" class="pane">
+        <section class="block">
+          <h3>Жесты рукой</h3>
+          <table class="gestures">
+            <tr><td>Большой палец вверх</td><td>Да</td></tr>
+            <tr><td>Большой палец вниз</td><td>Нет</td></tr>
+            <tr class="urgent"><td>Открытая ладонь</td><td>Позовите врача</td></tr>
+            <tr class="urgent"><td>Кулак</td><td>Мне больно</td></tr>
+          </table>
+        </section>
+        <section class="block">
+          <h3>Пост медсестры</h3>
+          <p class="hint">Открыть на телефоне в той же сети Wi-Fi:</p>
+          <pre id="nurse-urls" class="nurse-urls">…</pre>
+        </section>
+        <section class="block">
+          <h3>Журнал</h3>
+          <ul id="history" class="history"><li class="muted">Пока пусто</li></ul>
+        </section>
+      </div>
+
+      <div data-pane="calib" class="pane hidden">
+        <p class="hint">Пациент беззвучно произносит каждую фразу несколько раз. Система подстраивается под конкретного человека, поэтому работает на русском, казахском и любом другом языке.</p>
+        <div class="row">
+          <button id="wizard-btn" class="primary">Пройти калибровку</button>
+          <button id="rest-btn" class="secondary">Губы в покое</button>
+        </div>
+        <ul id="phrases" class="phrases"></ul>
+        <div class="row">
+          <input id="new-phrase" placeholder="Новая фраза" />
+          <button id="add-phrase" class="secondary">Добавить</button>
+        </div>
+        <div class="row">
+          <button id="eval-btn" class="secondary">Проверить точность</button>
+        </div>
+        <div id="neural-eval" class="eval neural"></div>
+        <div id="eval-result" class="eval"></div>
+      </div>
+
+      <div data-pane="settings" class="pane hidden">
+        <section class="block">
+          <h3>Пациент</h3>
+          <label class="setting">Имя
+            <input id="patient-name" class="text-input" /></label>
+          <label class="setting">Отделение, палата
+            <input id="patient-ward" class="text-input" /></label>
+        </section>
+        <section class="block">
+          <h3>Распознавание</h3>
+          <label class="check"><input id="neural-toggle" type="checkbox" /> Нейросеть чтения по губам</label>
+          <div id="neural-status" class="hint">Нейросеть: проверка…</div>
+          <label class="check"><input id="confirm-toggle" type="checkbox" /> Переспрашивать и ждать подтверждения жестом</label>
+          <label class="check"><input id="gesture-toggle" type="checkbox" /> Жесты рукой</label>
+          <label class="check"><input id="speak-toggle" type="checkbox" /> Произносить фразы вслух</label>
+          <label class="check"><input id="debug-toggle" type="checkbox" /> Показывать расстояния</label>
+        </section>
+        <section class="block">
+          <h3>Чувствительность</h3>
+          <label class="setting">Порог начала речи <b id="start-val"></b>
+            <input id="start-thr" type="range" min="1.5" max="12" step="0.1" /></label>
+          <label class="setting">Порог окончания <b id="end-val"></b>
+            <input id="end-thr" type="range" min="0.5" max="8" step="0.1" /></label>
+          <label class="setting">Пауза в конце фразы, мс <b id="hold-val"></b>
+            <input id="end-hold" type="range" min="200" max="1500" step="50" /></label>
+          <label class="setting">Порог «не уверен» <b id="reject-val"></b>
+            <input id="reject-thr" type="range" min="0" max="3" step="0.01" /></label>
+        </section>
+        <div class="row">
+          <button id="export-btn" class="secondary">Экспорт</button>
+          <label class="secondary file-btn">Импорт<input id="import-input" type="file" accept="application/json" hidden /></label>
+          <button id="reset-btn" class="danger">Удалить все записи</button>
+        </div>
+      </div>
+    </aside>
+  </main>
+
+  <div id="alert" class="alert hidden" role="alertdialog">
+    <div class="alert-box">
+      <div class="alert-title">Срочный вызов</div>
+      <div id="alert-text" class="alert-text"></div>
+      <div class="alert-sub">Сигнал отправлен на пост медсестры</div>
+      <button id="alert-close" class="primary">Принято</button>
+    </div>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>

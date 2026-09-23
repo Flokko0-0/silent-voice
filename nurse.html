@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#fbfaf7" />
+  <title>Пост медсестры</title>
+  <link href="https://fonts.googleapis.com/css2?family=PT+Sans:wght@400;700&family=PT+Mono&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --paper: #f3f1ec; --sheet: #fbfaf7; --ink: #1a1a18; --ink-2: #4a4843; --muted: #8a867d;
+      --rule: #d8d4ca; --signal: #1f5f4a; --alarm: #c3321f; --alarm-soft: #f7e3df;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--paper); color: var(--ink); font-family: "PT Sans", "Segoe UI", Arial, sans-serif; }
+    header { display: flex; justify-content: space-between; align-items: flex-end; padding: 16px; background: var(--sheet); border-bottom: 2px solid var(--ink); }
+    header b { font-size: 20px; }
+    .conn { font-size: 11px; letter-spacing: .09em; text-transform: uppercase; font-weight: 700; color: var(--signal); }
+    .conn.off { color: var(--alarm); }
+    main { padding: 16px; }
+    .unlock { width: 100%; padding: 12px; border: 1px solid var(--ink); background: var(--ink); color: var(--sheet); font: inherit; font-weight: 700; font-size: 16px; margin-bottom: 18px; }
+    .unlock:disabled { background: transparent; color: var(--muted); border-color: var(--rule); }
+    .card { padding: 12px 0 14px; border-bottom: 1px solid var(--rule); }
+    .card.urgent { border-left: 4px solid var(--alarm); padding-left: 12px; }
+    .card.acked { opacity: .5; }
+    .meta { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; color: var(--muted); }
+    .meta time { font-family: "PT Mono", monospace; }
+    .text { font-size: 26px; font-weight: 700; margin: 4px 0 2px; }
+    .urgent .text { color: var(--alarm); }
+    .via { font-size: 11px; letter-spacing: .09em; text-transform: uppercase; font-weight: 700; color: var(--signal); }
+    .card button { margin-top: 10px; border: 1px solid var(--ink); background: var(--ink); color: var(--sheet); font: inherit; font-weight: 700; font-size: 16px; padding: 8px 20px; }
+    .urgent button { background: var(--alarm); border-color: var(--alarm); }
+    .empty { color: var(--muted); padding: 32px 0; }
+
+    .alarm { position: fixed; inset: 0; background: var(--sheet); border-top: 14px solid var(--alarm);
+             display: flex; flex-direction: column; justify-content: center; padding: 28px; z-index: 5; }
+    .alarm.flash { animation: flash .9s steps(2, jump-none) infinite; }
+    @keyframes flash { 50% { background: var(--alarm-soft); } }
+    .alarm .title { color: var(--alarm); font-size: 13px; letter-spacing: .12em; text-transform: uppercase; font-weight: 700; }
+    .alarm .who { color: var(--ink-2); margin-top: 6px; }
+    .alarm .text { font-size: 46px; line-height: 1.05; margin: 14px 0 28px; color: var(--ink); }
+    .alarm button { align-self: flex-start; border: 0; background: var(--alarm); color: #fff; font: inherit; font-size: 22px; font-weight: 700; padding: 14px 40px; }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+  <header>
+    <b>Пост медсестры</b>
+    <span id="conn" class="conn off">нет связи</span>
+  </header>
+  <main>
+    <button id="unlock" class="unlock">Включить звук тревоги</button>
+    <div id="list"><div class="empty">Сообщений от пациентов пока нет</div></div>
+  </main>
+
+  <div id="alarm" class="alarm flash hidden" role="alertdialog">
+    <div class="title">Срочный вызов</div>
+    <div id="alarm-who" class="who"></div>
+    <div id="alarm-text" class="text"></div>
+    <button id="alarm-ack">Иду</button>
+  </div>
+
+  <script>
+    const list = document.getElementById('list');
+    const conn = document.getElementById('conn');
+    const acked = new Set();
+    const seen = new Set();
+    let audioCtx = null;
+    let ringTimer = 0;
+    let alarmId = null;
+
+    // Browsers only allow sound after a tap, so the nurse unlocks audio once when opening the page.
+    document.getElementById('unlock').onclick = (e) => {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      e.target.textContent = 'Звук включён';
+      e.target.disabled = true;
+    };
+
+    function ring() {
+      if (navigator.vibrate) navigator.vibrate([400, 150, 400, 150, 400]);
+      if (!audioCtx) return;
+      for (let i = 0; i < 3; i++) {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.frequency.value = i % 2 ? 660 : 880;
+        osc.connect(gain).connect(audioCtx.destination);
+        const t = audioCtx.currentTime + i * 0.3;
+        gain.gain.setValueAtTime(0.3, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.25);
+        osc.start(t);
+        osc.stop(t + 0.26);
+      }
+    }
+
+    const who = (m) => [m.patient, m.ward].filter(Boolean).join(', ') || 'Пациент';
+    const time = (at) => new Date(at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+
+    const localRelay = 'BroadcastChannel' in window ? new BroadcastChannel('silent-voice') : null;
+    let serverOnline = false;
+    if (localRelay) {
+      localRelay.onmessage = (e) => {
+        const ev = e.data || {};
+        if (ev.type === 'message') add(ev, true);
+      };
+    }
+
+    function ack(id) {
+      acked.add(id);
+      localRelay?.postMessage({ type: 'ack', id, by: 'Медсестра' });
+      if (serverOnline) fetch('/api/ack', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) });
+      if (alarmId === id) stopAlarm();
+      render();
+    }
+
+    function startAlarm(m) {
+      alarmId = m.id;
+      document.getElementById('alarm-who').textContent = `${who(m)} · ${time(m.at)}`;
+      document.getElementById('alarm-text').textContent = m.text;
+      document.getElementById('alarm').classList.remove('hidden');
+      clearInterval(ringTimer);
+      ring();
+      ringTimer = setInterval(ring, 2500);
+    }
+    function stopAlarm() {
+      alarmId = null;
+      clearInterval(ringTimer);
+      if (navigator.vibrate) navigator.vibrate(0);
+      document.getElementById('alarm').classList.add('hidden');
+    }
+    document.getElementById('alarm-ack').onclick = () => alarmId && ack(alarmId);
+
+    const messages = [];
+    function add(m, live) {
+      if (seen.has(m.id)) return;
+      seen.add(m.id);
+      messages.unshift(m);
+      if (live && m.urgent) startAlarm(m);
+      else if (live) ring();
+      render();
+    }
+
+    function render() {
+      if (!messages.length) return;
+      list.innerHTML = '';
+      for (const m of messages) {
+        const card = document.createElement('div');
+        card.className = 'card' + (m.urgent ? ' urgent' : '') + (acked.has(m.id) ? ' acked' : '');
+        const meta = document.createElement('div');
+        meta.className = 'meta';
+        const w = document.createElement('span');
+        w.textContent = who(m);
+        const t = document.createElement('time');
+        t.textContent = time(m.at);
+        meta.append(w, t);
+        const text = document.createElement('div');
+        text.className = 'text';
+        text.textContent = m.text;
+        const via = document.createElement('div');
+        via.className = 'via';
+        via.textContent = m.via || '';
+        card.append(meta, text, via);
+        if (!acked.has(m.id)) {
+          const btn = document.createElement('button');
+          btn.textContent = m.urgent ? 'Иду' : 'Принято';
+          btn.onclick = () => ack(m.id);
+          card.append(btn);
+        }
+        list.append(card);
+      }
+    }
+
+    function connect() {
+      const es = new EventSource('/events');
+      let everOpened = false;
+      es.onopen = () => { everOpened = serverOnline = true; conn.textContent = 'на связи'; conn.classList.remove('off'); };
+      es.onerror = () => {
+        serverOnline = false;
+        if (!everOpened && localRelay) {
+          // No relay server (static demo): keep listening to the other tab instead of retrying.
+          es.close();
+          conn.textContent = 'связь с вкладкой пациента';
+          conn.classList.remove('off');
+        } else {
+          conn.textContent = 'нет связи';
+          conn.classList.add('off');
+        }
+      };
+      es.onmessage = (e) => {
+        const ev = JSON.parse(e.data);
+        if (ev.type === 'hello') ev.recent.forEach((m) => add(m, false));
+        else if (ev.type === 'message') add(ev, true);
+        else if (ev.type === 'ack') { acked.add(ev.id); if (alarmId === ev.id) stopAlarm(); render(); }
+      };
+    }
+    connect();
+  </script>
+</body>
+</html>
