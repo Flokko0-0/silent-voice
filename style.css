@@ -38,40 +38,24 @@ button, input { font: inherit; color: inherit; }
   font-weight: 700;
 }
 
-/* ---------- шапка-браслет пациента ---------- */
-.band-wrap {
-  display: flex; align-items: center; gap: 24px;
-  padding: 16px 32px 0; max-width: 1440px; margin: 0 auto;
+/* ---------- шапка: лист наблюдения ---------- */
+.chart {
+  display: flex; align-items: flex-end; gap: 36px;
+  padding: 16px 32px 12px; background: var(--sheet); border-bottom: 2px solid var(--ink);
 }
-.band {
-  flex: 1; min-width: 0; display: flex; align-items: stretch;
-  background: var(--sheet); border: 1px solid var(--ink); border-radius: 40px; overflow: hidden;
-  position: relative;
-}
-.clasp {
-  flex: none; width: 88px; display: grid; place-items: center;
-  background: var(--ink); border-right: 3px double var(--sheet);
-}
-.brand-lips { width: 52px; height: 28px; }
-.band-print {
-  position: absolute; left: 104px; right: 150px; bottom: 3px;
-  font-size: 9px; letter-spacing: .3em; text-transform: uppercase; color: var(--rule);
-  white-space: nowrap; overflow: hidden; pointer-events: none;
-}
-.band-fields { display: flex; align-items: center; gap: 26px; margin: 0; padding: 12px 20px 16px; flex: 1; min-width: 0; }
-.band-fields > div { min-width: 0; }
-.band-fields dt { font-size: 11px; letter-spacing: .09em; text-transform: uppercase; font-weight: 700; color: var(--muted); }
-.band-fields dd { margin: 2px 0 0; font-weight: 700; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.band-name dd { font-size: 22px; line-height: 1.1; }
-.mono { font-family: var(--mono); font-weight: 400 !important; letter-spacing: .04em; }
-.band-barcode svg { width: 120px; height: 30px; display: block; }
+.chart-ward { font-size: 13px; color: var(--ink-2); }
+.chart-name { font-size: 26px; font-weight: 700; line-height: 1.1; }
+.chart-meta { display: flex; gap: 28px; margin: 0; flex: 1; }
+.chart-meta dt { font-size: 12px; color: var(--muted); }
+.chart-meta dd { margin: 1px 0 0; font-weight: 700; white-space: nowrap; }
+#band-room { font-family: var(--mono); font-weight: 400; }
 #neural-badge { color: var(--signal); }
 #neural-badge.off { color: var(--ink-2); }
 #status.ok { color: var(--signal); }
 #status.warn { color: var(--ask); }
-.band-holes { flex: none; display: flex; align-items: center; gap: 10px; padding: 0 22px 0 8px; }
-.band-holes i { width: 9px; height: 9px; border-radius: 50%; border: 1px solid var(--muted); background: var(--paper); }
-.band-tools { display: flex; align-items: center; gap: 16px; flex: none; }
+.chart-tools { display: flex; align-items: center; gap: 16px; }
+.chart-brand { display: flex; align-items: center; gap: 8px; text-decoration: none; color: var(--ink-2); font-size: 14px; }
+.brand-lips { width: 40px; height: 22px; }
 
 .lang-switch { display: flex; border: 1px solid var(--ink); }
 .lang-switch button { border: 0; background: transparent; padding: 6px 14px; cursor: pointer; font-weight: 700; }
@@ -272,14 +256,12 @@ button, input { font: inherit; color: inherit; }
 }
 
 @media (max-width: 1250px) {
-  .band-fields > div:nth-child(n + 5) { display: none; }
-  .band-holes { display: none; }
+  .chart-meta div:nth-child(n + 2) { display: none; }
+  .chart-brand span { display: none; }
 }
 @media (max-width: 900px) {
   .layout { grid-template-columns: 1fr; padding: 16px; }
-  .band-wrap { flex-wrap: wrap; padding: 12px 16px 0; }
-  .band { flex-basis: 100%; }
-  .band-fields > div:nth-child(n + 3) { display: none; }
-  .band-print { display: none; }
+  .chart { flex-wrap: wrap; gap: 14px; padding: 12px 16px 10px; }
+  .chart-meta { display: none; }
   .output-text { font-size: 38px; }
 }
