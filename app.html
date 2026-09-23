@@ -125,6 +125,15 @@
             <input id="patient-ward" class="text-input" /></label>
         </section>
         <section class="block">
+          <h3>Защита</h3>
+          <label class="setting">PIN персонала для калибровки и настроек (пусто — без защиты)
+            <input id="pin-input" class="text-input" inputmode="numeric" autocomplete="off" /></label>
+          <p class="hint">Видео не покидает устройство. Сообщения на пост медсестры шифруются кодом палаты. Срочный вызов без ответа повторяется каждую минуту.</p>
+          <div class="row" style="margin-top:10px">
+            <button id="discharge-btn" class="danger">Выписка: удалить данные пациента</button>
+          </div>
+        </section>
+        <section class="block">
           <h3>Распознавание</h3>
           <label class="check"><input id="neural-toggle" type="checkbox" /> Нейросеть чтения по губам</label>
           <div id="neural-status" class="hint">Нейросеть: проверка…</div>

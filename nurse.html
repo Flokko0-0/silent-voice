@@ -40,6 +40,11 @@
     .alarm .who { color: var(--ink-2); margin-top: 6px; }
     .alarm .text { font-size: 46px; line-height: 1.05; margin: 14px 0 28px; color: var(--ink); }
     .alarm button { align-self: flex-start; border: 0; background: var(--alarm); color: #fff; font: inherit; font-size: 22px; font-weight: 700; padding: 14px 40px; }
+    .room-form { margin-bottom: 18px; }
+    .room-form label { display: block; font-size: 13px; color: var(--ink-2); margin-bottom: 6px; }
+    .room-form div { display: flex; gap: 8px; }
+    .room-form input { flex: 1; min-width: 0; font: inherit; font-family: "PT Mono", monospace; font-size: 20px; padding: 8px 10px; border: 1px solid var(--ink); background: var(--sheet); }
+    .room-form button { font: inherit; font-weight: 700; border: 1px solid var(--ink); background: var(--ink); color: var(--sheet); padding: 8px 14px; }
     .hidden { display: none !important; }
   </style>
 </head>
@@ -49,6 +54,10 @@
     <span id="conn" class="conn off">нет связи</span>
   </header>
   <main>
+    <form id="room-form" class="room-form hidden">
+      <label for="room-code">Код палаты с экрана пациента</label>
+      <div><input id="room-code" inputmode="numeric" placeholder="1234-5678" autocomplete="off" /><button>Подключиться</button></div>
+    </form>
     <button id="unlock" class="unlock">Включить звук тревоги</button>
     <div id="list"><div class="empty">Сообщений от пациентов пока нет</div></div>
   </main>
@@ -60,7 +69,9 @@
     <button id="alarm-ack">Иду</button>
   </div>
 
-  <script>
+  <script type="module">
+    import { openRoom, formatRoom } from './relay.js';
+
     const list = document.getElementById('list');
     const conn = document.getElementById('conn');
     const acked = new Set();
@@ -68,8 +79,10 @@
     let audioCtx = null;
     let ringTimer = 0;
     let alarmId = null;
+    let room = null;
+    let serverOnline = false;
 
-    // Browsers only allow sound after a tap, so the nurse unlocks audio once when opening the page.
+    // Браузер разрешает звук только после нажатия, поэтому медсестра один раз включает его.
     document.getElementById('unlock').onclick = (e) => {
       audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       e.target.textContent = 'Звук включён';
@@ -95,18 +108,9 @@
     const who = (m) => [m.patient, m.ward].filter(Boolean).join(', ') || 'Пациент';
     const time = (at) => new Date(at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
 
-    const localRelay = 'BroadcastChannel' in window ? new BroadcastChannel('silent-voice') : null;
-    let serverOnline = false;
-    if (localRelay) {
-      localRelay.onmessage = (e) => {
-        const ev = e.data || {};
-        if (ev.type === 'message') add(ev, true);
-      };
-    }
-
     function ack(id) {
       acked.add(id);
-      localRelay?.postMessage({ type: 'ack', id, by: 'Медсестра' });
+      if (room) room.send({ type: 'ack', id, by: 'Медсестра', at: Date.now() }).catch(() => {});
       if (serverOnline) fetch('/api/ack', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) });
       if (alarmId === id) stopAlarm();
       render();
@@ -114,7 +118,7 @@
 
     function startAlarm(m) {
       alarmId = m.id;
-      document.getElementById('alarm-who').textContent = `${who(m)} · ${time(m.at)}`;
+      document.getElementById('alarm-who').textContent = `${who(m)} · ${time(m.at)}${m.repeat ? ` · повторный вызов ${m.repeat}` : ''}`;
       document.getElementById('alarm-text').textContent = m.text;
       document.getElementById('alarm').classList.remove('hidden');
       clearInterval(ringTimer);
@@ -131,7 +135,7 @@
 
     const messages = [];
     function add(m, live) {
-      if (seen.has(m.id)) return;
+      if (!m.id || seen.has(m.id)) return;
       seen.add(m.id);
       messages.unshift(m);
       if (live && m.urgent) startAlarm(m);
@@ -157,7 +161,7 @@
         text.textContent = m.text;
         const via = document.createElement('div');
         via.className = 'via';
-        via.textContent = m.via || '';
+        via.textContent = [m.via, m.repeat ? `повторный вызов ${m.repeat}` : ''].filter(Boolean).join(' · ');
         card.append(meta, text, via);
         if (!acked.has(m.id)) {
           const btn = document.createElement('button');
@@ -169,30 +173,58 @@
       }
     }
 
-    function connect() {
-      const es = new EventSource('/events');
-      let everOpened = false;
-      es.onopen = () => { everOpened = serverOnline = true; conn.textContent = 'на связи'; conn.classList.remove('off'); };
-      es.onerror = () => {
-        serverOnline = false;
-        if (!everOpened && localRelay) {
-          // No relay server (static demo): keep listening to the other tab instead of retrying.
-          es.close();
-          conn.textContent = 'связь с вкладкой пациента';
-          conn.classList.remove('off');
-        } else {
-          conn.textContent = 'нет связи';
-          conn.classList.add('off');
-        }
-      };
-      es.onmessage = (e) => {
-        const ev = JSON.parse(e.data);
-        if (ev.type === 'hello') ev.recent.forEach((m) => add(m, false));
-        else if (ev.type === 'message') add(ev, true);
-        else if (ev.type === 'ack') { acked.add(ev.id); if (alarmId === ev.id) stopAlarm(); render(); }
-      };
+    function onEvent(ev, live) {
+      if (ev.type === 'message') add(ev, live);
+      else if (ev.type === 'ack') {
+        acked.add(ev.id);
+        if (alarmId === ev.id) stopAlarm();
+        render();
+      }
     }
-    connect();
+
+    async function joinRoom(code) {
+      const clean = String(code).replace(/\D/g, '');
+      if (clean.length !== 8) return false;
+      room?.close();
+      room = await openRoom(clean, (ev) => onEvent(ev, true), (ok) => {
+        conn.textContent = ok ? `палата ${formatRoom(clean)}` : 'нет связи';
+        conn.classList.toggle('off', !ok);
+      });
+      document.getElementById('room-form').classList.add('hidden');
+      history.replaceState(null, '', `#room=${clean}`);
+      return true;
+    }
+
+    document.getElementById('room-form').onsubmit = (e) => {
+      e.preventDefault();
+      joinRoom(document.getElementById('room-code').value).then((ok) => ok || alert('Код палаты — 8 цифр'));
+    };
+
+    // Локальный сервер (Wi-Fi) или интернет по коду палаты.
+    const es = new EventSource('/events');
+    let everOpened = false;
+    es.onopen = () => {
+      everOpened = serverOnline = true;
+      conn.textContent = 'на связи';
+      conn.classList.remove('off');
+    };
+    es.onmessage = (e) => {
+      const ev = JSON.parse(e.data);
+      if (ev.type === 'hello') ev.recent.forEach((m) => add(m, false));
+      else onEvent(ev, true);
+    };
+    es.onerror = () => {
+      serverOnline = false;
+      if (everOpened) {
+        conn.textContent = 'нет связи';
+        conn.classList.add('off');
+        return;
+      }
+      es.close();
+      const code = new URLSearchParams(location.hash.slice(1)).get('room');
+      if (code) joinRoom(code);
+      else document.getElementById('room-form').classList.remove('hidden');
+    };
   </script>
 </body>
 </html>

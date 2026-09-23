@@ -2,6 +2,10 @@ import { FaceLandmarker, FilesetResolver, GestureRecognizer } from './vendor/med
 import { extractFeatures, FEATURE_GROUPS, FEATURE_DIM, ACTIVITY_FLOOR } from './features.js';
 import { Recognizer } from './recognizer.js';
 import { cropMouth, packFrames } from './mouth-crop.js';
+import * as nb from './neural-browser.js';
+import { openRoom, newRoomCode, formatRoom } from './relay.js';
+
+const { browserNet } = nb;
 
 const NEURAL_URL = 'http://localhost:5174';
 const neural = { available: false };
@@ -19,6 +23,14 @@ async function neuralCall(path, body) {
 
 const IS_LOCAL = ['localhost', '127.0.0.1'].includes(location.hostname);
 
+// server: python-сервер на ноутбуке (быстрее), browser: та же сеть в ONNX прямо на странице
+function neuralMode() {
+  if (!state.settings.neural) return null;
+  if (neural.available) return 'server';
+  if (browserNet.ready) return 'browser';
+  return null;
+}
+
 async function checkNeural() {
   if (!IS_LOCAL) {
     neural.available = false;
@@ -30,21 +42,38 @@ async function checkNeural() {
       neural.available = false;
     }
   }
+  if (!neural.available && state.settings.neural && !browserNet.ready) {
+    nb.loadModel(() => renderNeural()).then(renderNeural).catch((err) => {
+      toast(`Нейросеть не загрузилась: ${err.message}`);
+    });
+  }
+  renderNeural();
+}
+
+function renderNeural() {
+  const mode = neuralMode();
+  const loadingNow = state.settings.neural && !mode && browserNet.progress > 0 && browserNet.progress < 100;
   const el = document.getElementById('neural-status');
-  if (el) el.textContent = neural.available ? 'Нейросеть: подключена' : 'Нейросеть: не запущена';
+  if (el) {
+    el.textContent = mode === 'server' ? 'Нейросеть: сервер на ноутбуке'
+      : mode === 'browser' ? 'Нейросеть: работает в браузере'
+      : loadingNow ? `Нейросеть: загрузка ${browserNet.progress}%`
+      : 'Нейросеть: выключена';
+  }
   const badge = document.getElementById('neural-badge');
   if (badge) {
-    const on = neural.available && state.settings.neural;
-    badge.classList.toggle('off', !on);
-    badge.textContent = on ? 'нейросеть' : 'точки губ';
+    badge.classList.toggle('off', !mode);
+    badge.textContent = mode ? 'нейросеть' : loadingNow ? `нейросеть ${browserNet.progress}%` : 'точки губ';
   }
 }
 
 const clipPayload = (clip) => ({ frames: packFrames(clip.rois), n: clip.rois.length, times: clip.times, lang: state.lang });
 
 function neuralEnroll(phraseId, clip) {
-  if (!neural.available || !clip) return;
-  neuralCall('/enroll', { ...clipPayload(clip), label: phraseId }).catch((err) => toast(`Нейросеть: ${err.message}`));
+  if (!clip) return;
+  const fail = (err) => toast(`Нейросеть: ${err.message}`);
+  if (neural.available) neuralCall('/enroll', { ...clipPayload(clip), label: phraseId }).catch(fail);
+  else if (browserNet.ready) nb.enroll(state.lang, phraseId, clip.rois, clip.times).catch(fail);
 }
 
 const DEFAULT_PHRASES = [
@@ -250,7 +279,7 @@ function loop() {
 
   activity = computeActivity(smooth);
   const rel = smooth.map((v, k) => v - rest.mean[k]);
-  const roi = neural.available ? cropMouth(video, landmarks) : null;
+  const roi = neural.available || browserNet.ready ? cropMouth(video, landmarks) : null;
   stepSegmenter(rel, now, roi);
   drawLips(feat, seg.active ? '#f0a020' : '#ffffff');
   renderMeter(activity);
@@ -437,9 +466,13 @@ async function recognize(seq, clip) {
   }
   let ranked = null;
   let via = '';
-  if (neural.available && state.settings.neural && clip) {
+  const mode = neuralMode();
+  if (mode && clip) {
     try {
-      const res = await neuralCall('/classify', clipPayload(clip));
+      if (mode === 'browser') setStatus('Нейросеть думает…', 'warn');
+      const res = mode === 'server'
+        ? await neuralCall('/classify', clipPayload(clip))
+        : await nb.classify(state.lang, clip.rois, clip.times);
       ranked = res.ranked.filter((r) => phraseById(r.label));
       via = `нейросеть, ${res.ms} мс`;
     } catch (err) {
@@ -555,17 +588,31 @@ function say(phrase, via = LIPS_SOURCE) {
   if (phrase.urgent) raiseAlert(text);
   speak(text);
   notifyNurse(text, phrase.urgent, via);
+  if (phrase.urgent) watchUrgent(text, via);
 }
 
 // ---------- nurse station link ----------
-const localRelay = 'BroadcastChannel' in window ? new BroadcastChannel('silent-voice') : null;
+// server: локальный сервер на ноутбуке (Wi-Fi), cloud: интернет по коду палаты, со сквозным шифрованием
 let relayMode = 'server';
+let room = null;
+const ESCALATE_MS = 60000;
+const ESCALATE_MAX = 3;
+let urgentWatch = null;
 
-function notifyNurse(text, urgent, via) {
+function ensureRoomCode() {
+  if (!/^\d{8}$/.test(state.settings.room || '')) {
+    state.settings.room = newRoomCode();
+    saveState();
+  }
+  return state.settings.room;
+}
+
+function notifyNurse(text, urgent, via, extra = {}) {
   const { patient, ward } = state.settings;
-  const msg = { text, urgent, via, patient, ward };
-  if (relayMode === 'local') {
-    localRelay?.postMessage({ type: 'message', id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, at: Date.now(), ...msg });
+  const msg = { text, urgent, via, patient, ward, ...extra };
+  if (relayMode === 'cloud') {
+    const ev = { type: 'message', id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, at: Date.now(), ...msg };
+    (room ? room.send(ev) : Promise.reject()).catch(() => toast('Нет связи с постом медсестры'));
     return;
   }
   fetch('/api/message', {
@@ -575,7 +622,24 @@ function notifyNurse(text, urgent, via) {
   }).catch(() => toast('Пост медсестры недоступен'));
 }
 
+// Срочный вызов без ответа повторяется каждую минуту (до трёх раз).
+function watchUrgent(text, via) {
+  clearInterval(urgentWatch);
+  let attempt = 0;
+  urgentWatch = setInterval(() => {
+    attempt++;
+    if (attempt > ESCALATE_MAX) {
+      clearInterval(urgentWatch);
+      return;
+    }
+    notifyNurse(text, true, via, { repeat: attempt });
+    beep();
+    toast(`Медсестра не ответила. Повторный вызов ${attempt} из ${ESCALATE_MAX}`);
+  }, ESCALATE_MS);
+}
+
 function onNurseAck(ev) {
+  clearInterval(urgentWatch);
   $('alert').classList.add('hidden');
   const ackEl = $('nurse-ack');
   ackEl.textContent = `${ev.by || 'Медсестра'} идёт к вам`;
@@ -584,9 +648,15 @@ function onNurseAck(ev) {
   setTimeout(() => ackEl.classList.add('hidden'), 8000);
 }
 
+async function connectRoom() {
+  room?.close();
+  room = await openRoom(ensureRoomCode(), (ev) => ev.type === 'ack' && onNurseAck(ev));
+  showNurseUrls();
+}
+
 function listenForNurse() {
-  if (relayMode === 'local') {
-    if (localRelay) localRelay.onmessage = (e) => e.data?.type === 'ack' && onNurseAck(e.data);
+  if (relayMode === 'cloud') {
+    connectRoom().catch((err) => toast(`Связь: ${err.message}`));
     return;
   }
   const es = new EventSource('/events');
@@ -598,20 +668,27 @@ function listenForNurse() {
 
 async function showNurseUrls() {
   const el = $('nurse-urls');
-  try {
-    const res = await fetch('/api/info');
-    if (!res.ok) throw new Error(res.statusText);
-    const { nurseUrls } = await res.json();
-    el.textContent = nurseUrls.length ? nurseUrls.join('\n') : 'Нет сети — подключитесь к Wi-Fi или точке доступа';
-  } catch {
-    relayMode = 'local';
-    el.innerHTML = '';
-    const a = document.createElement('a');
-    a.href = 'nurse.html';
-    a.target = '_blank';
-    a.textContent = 'Открыть пост медсестры в новой вкладке';
-    el.append(a, document.createTextNode('\nОнлайн-версия: сигнал приходит во вкладку этого же браузера.'));
+  if (relayMode === 'server') {
+    try {
+      const res = await fetch('/api/info');
+      if (!res.ok) throw new Error(res.statusText);
+      const { nurseUrls } = await res.json();
+      el.textContent = nurseUrls.length ? nurseUrls.join('\n') : 'Нет сети — подключитесь к Wi-Fi или точке доступа';
+      return;
+    } catch {
+      relayMode = 'cloud';
+    }
   }
+  const code = ensureRoomCode();
+  const url = new URL(`nurse.html#room=${code}`, location.href).href;
+  el.innerHTML = '';
+  const b = document.createElement('b');
+  b.textContent = `Код палаты: ${formatRoom(code)}`;
+  const a = document.createElement('a');
+  a.href = url;
+  a.target = '_blank';
+  a.textContent = url;
+  el.append(b, document.createTextNode('\nОткройте на телефоне:\n'), a, document.createTextNode('\nСообщения шифруются кодом палаты.'));
 }
 
 function renderAlternatives(options, seq, label, debugLine) {
@@ -692,9 +769,10 @@ $('alert-close').onclick = () => $('alert').classList.add('hidden');
 
 // ---------- evaluation ----------
 async function evaluate() {
-  if (neural.available && state.settings.neural) {
+  const mode = neuralMode();
+  if (mode) {
     try {
-      const r = await neuralCall('/evaluate', { lang: state.lang });
+      const r = mode === 'server' ? await neuralCall('/evaluate', { lang: state.lang }) : nb.evaluate(state.lang);
       const el = $('neural-eval');
       el.textContent = r.total
         ? `Нейросеть: ${Math.round((100 * r.correct) / r.total)}% (${r.correct} из ${r.total})`
@@ -822,6 +900,7 @@ function renderPhrases() {
       if (n) {
         delete state.templates[key(p.id)];
         if (neural.available) neuralCall('/clear', { lang: state.lang, label: p.id }).catch(() => {});
+        nb.clear(state.lang, p.id).catch(() => {});
       }
       else state.phrases = state.phrases.filter((x) => x !== p);
       saveState();
@@ -846,6 +925,7 @@ function renderSettings() {
   $('reject-val').textContent = s.rejectThr ? s.rejectThr.toFixed(2) : 'выкл';
   $('speak-toggle').checked = s.speak;
   $('patient-name').value = s.patient;
+  $('pin-input').value = s.pin || '';
   $('patient-ward').value = s.ward;
   $('patient-chip-name').textContent = s.patient || 'Пациент';
   $('patient-chip-ward').textContent = s.ward;
@@ -877,8 +957,23 @@ function toast(text) {
 }
 
 // ---------- controls ----------
+// PIN персонала: калибровку и настройки нельзя изменить случайно (пациентом или посетителем).
+let unlockedUntil = 0;
+function staffUnlocked() {
+  const pin = state.settings.pin;
+  if (!pin || Date.now() < unlockedUntil) return true;
+  const entered = prompt('PIN персонала');
+  if (entered === pin) {
+    unlockedUntil = Date.now() + 5 * 60 * 1000;
+    return true;
+  }
+  if (entered !== null) toast('Неверный PIN');
+  return false;
+}
+
 document.querySelectorAll('.tabs button').forEach((btn) => {
   btn.onclick = () => {
+    if (btn.dataset.tab !== 'talk' && !staffUnlocked()) return;
     document.querySelectorAll('.tabs button').forEach((b) => b.classList.toggle('active', b === btn));
     document.querySelectorAll('[data-pane]').forEach((p) => p.classList.toggle('hidden', p.dataset.pane !== btn.dataset.tab));
   };
@@ -982,10 +1077,34 @@ $('import-input').onchange = async (e) => {
     toast(`Не удалось прочитать файл: ${err.message}`);
   }
 };
+$('pin-input').onchange = (e) => {
+  state.settings.pin = e.target.value.replace(/\D/g, '').slice(0, 8);
+  e.target.value = state.settings.pin;
+  saveState();
+  toast(state.settings.pin ? 'PIN установлен' : 'Защита PIN выключена');
+};
+$('discharge-btn').onclick = async () => {
+  if (!confirm('Выписка: удалить с этого устройства все записи, журнал и данные пациента?')) return;
+  state.templates = {};
+  state.settings.patient = 'Пациент';
+  state.settings.room = '';
+  if (neural.available) for (const lang of ['ru', 'kk']) neuralCall('/clear', { lang }).catch(() => {});
+  await nb.clear(null).catch(() => {});
+  saveState();
+  refitRecognizer();
+  renderPhrases();
+  renderSettings();
+  $('history').innerHTML = '<li class="muted">Пока пусто</li>';
+  $('eval-result').textContent = '';
+  $('neural-eval').textContent = '';
+  if (relayMode === 'cloud') connectRoom().catch(() => {});
+  toast('Данные пациента удалены, выдан новый код палаты');
+};
 $('reset-btn').onclick = () => {
   if (!confirm('Удалить все записанные образцы?')) return;
   state.templates = {};
   if (neural.available) neuralCall('/clear', { lang: state.lang }).catch(() => {});
+  nb.clear(state.lang).catch(() => {});
   saveState();
   refitRecognizer();
   renderPhrases();
