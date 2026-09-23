@@ -22,6 +22,24 @@ async function neuralCall(path, body) {
 }
 
 const IS_LOCAL = ['localhost', '127.0.0.1'].includes(location.hostname);
+const PRESET_URL = new URL('./preset/', import.meta.url);
+
+async function loadLipsPreset() {
+  if (!state.settings.preset || presetLips) return;
+  try {
+    presetLips = await (await fetch(new URL('lips-ru.json', PRESET_URL))).json();
+    refitRecognizer();
+    renderPhrases();
+    renderPresetNote();
+  } catch {
+    presetLips = null;
+  }
+}
+
+function renderPresetNote() {
+  const el = document.getElementById('preset-note');
+  if (el) el.classList.toggle('hidden', !(state.settings.preset && presetLips && state.lang === 'ru'));
+}
 
 // server: python-сервер на ноутбуке (быстрее), browser: та же сеть в ONNX прямо на странице
 function neuralMode() {
@@ -43,7 +61,10 @@ async function checkNeural() {
     }
   }
   if (!neural.available && state.settings.neural && !browserNet.ready) {
-    nb.loadModel(() => renderNeural()).then(renderNeural).catch((err) => {
+    nb.loadModel(() => renderNeural())
+      .then(() => (state.settings.preset ? nb.loadPreset(PRESET_URL) : null))
+      .then(renderNeural)
+      .catch((err) => {
       toast(`Нейросеть не загрузилась: ${err.message}`);
     });
   }
@@ -116,7 +137,7 @@ const defaultState = () => ({
   phrases: structuredClone(DEFAULT_PHRASES),
   templates: {}, // `${phraseId}|${lang}` -> number[][][]
   settings: {
-    startThr: 4, endThr: 2.5, endHoldMs: 900, rejectThr: 0, speak: true, debug: false, gestures: true, confirm: true, neural: true,
+    startThr: 4, endThr: 2.5, endHoldMs: 900, rejectThr: 0, speak: true, debug: false, gestures: true, confirm: true, neural: true, preset: true,
     patient: 'Ерлан Н., 58 лет', ward: 'Реанимация, палата 3',
   },
 });
@@ -180,7 +201,12 @@ function saveState() {
 }
 
 const key = (phraseId, lang = state.lang) => `${phraseId}|${lang}`;
-const takes = (phraseId) => state.templates[key(phraseId)] || [];
+const ownTakes = (phraseId) => state.templates[key(phraseId)] || [];
+// Стартовый набор автора подмешивается, пока человек не откалибровал фразу сам.
+let presetLips = null;
+const presetTakes = (phraseId) =>
+  state.settings.preset && presetLips && ownTakes(phraseId).length < 3 ? presetLips[key(phraseId)] || [] : [];
+const takes = (phraseId) => [...ownTakes(phraseId), ...presetTakes(phraseId)];
 const phraseText = (p) => p[state.lang] || p.ru || p.kk || '';
 const phraseById = (id) => state.phrases.find((p) => p.id === id);
 
@@ -425,7 +451,7 @@ function recordTake(phraseId, seq, clip) {
   saveState();
   refitRecognizer();
   renderPhrases();
-  const n = takes(phraseId).length;
+  const n = ownTakes(phraseId).length;
   toast(`Записано: «${phraseText(phraseById(phraseId))}» (${n})`);
 
   if (armed.wizard) {
@@ -452,7 +478,7 @@ function recordTake(phraseId, seq, clip) {
 
 function promptForArmed() {
   const p = phraseById(armed.phraseId);
-  const n = takes(p.id).length;
+  const n = ownTakes(p.id).length;
   const progress = armed.wizard ? ` (${(n % TAKES_PER_PHRASE) + 1}/${TAKES_PER_PHRASE})` : '';
   showPrompt(`Беззвучно скажите: «${phraseText(p)}»${progress}`);
   setStatus('Запись образца', 'warn');
@@ -557,7 +583,7 @@ function confirmPending() {
   const phrase = candidates[idx];
   cancelPending();
   neuralEnroll(phrase.id, clip);
-  state.templates[key(phrase.id)] = [...takes(phrase.id), seq];
+  state.templates[key(phrase.id)] = [...ownTakes(phrase.id), seq];
   saveState();
   refitRecognizer();
   renderPhrases();
@@ -705,7 +731,7 @@ function renderAlternatives(options, seq, label, debugLine) {
     btn.className = 'chip';
     btn.textContent = phraseText(phrase);
     btn.onclick = () => {
-      state.templates[key(phrase.id)] = [...takes(phrase.id), seq];
+      state.templates[key(phrase.id)] = [...ownTakes(phrase.id), seq];
       saveState();
       refitRecognizer();
       renderPhrases();
@@ -854,7 +880,8 @@ function renderPhrases() {
   const list = $('phrases');
   list.innerHTML = '';
   for (const p of state.phrases) {
-    const n = takes(p.id).length;
+    const n = ownTakes(p.id).length;
+    const extra = presetTakes(p.id).length;
     const li = document.createElement('li');
     li.className = 'phrase' + (armed?.phraseId === p.id ? ' armed' : '');
 
@@ -878,7 +905,8 @@ function renderPhrases() {
 
     const count = document.createElement('span');
     count.className = 'count' + (n >= TAKES_PER_PHRASE ? ' ready' : '');
-    count.textContent = `${n}`;
+    count.textContent = extra ? `${n} + ${extra}` : `${n}`;
+    if (extra) count.title = `${extra} образцов из стартового набора автора`;
 
     const rec = document.createElement('button');
     rec.className = 'secondary' + (armed?.phraseId === p.id ? ' active' : '');
@@ -983,6 +1011,7 @@ document.querySelectorAll('.lang-switch button').forEach((btn) => {
   btn.classList.toggle('active', btn.dataset.lang === state.lang);
   btn.onclick = () => {
     state.lang = btn.dataset.lang;
+    renderPresetNote();
     document.querySelectorAll('.lang-switch button').forEach((b) => b.classList.toggle('active', b === btn));
     saveState();
     refitRecognizer();
@@ -992,7 +1021,7 @@ document.querySelectorAll('.lang-switch button').forEach((btn) => {
 });
 
 $('wizard-btn').onclick = () => {
-  wizardQueue = state.phrases.filter((p) => takes(p.id).length < TAKES_PER_PHRASE).map((p) => p.id);
+  wizardQueue = state.phrases.filter((p) => ownTakes(p.id).length < TAKES_PER_PHRASE).map((p) => p.id);
   const first = wizardQueue.shift();
   if (!first) {
     toast('Все фразы уже откалиброваны');
@@ -1138,8 +1167,40 @@ $('hold-btn').addEventListener('pointerleave', holdEnd);
 // Chrome loads voices asynchronously; touching the list early makes them available on first speak.
 if ('speechSynthesis' in window) speechSynthesis.getVoices();
 
+$('preset-off').onclick = () => {
+  if (!confirm('Убрать стартовый набор автора? Останутся только ваши записи.')) return;
+  state.settings.preset = false;
+  saveState();
+  nb.dropPreset();
+  refitRecognizer();
+  renderPhrases();
+  renderPresetNote();
+};
+
+// Короткая инструкция при первом входе, чтобы проверить прототип за минуту.
+const GUIDE_KEY = 'silent-voice-guide-seen';
+function showGuide() {
+  $('guide').classList.remove('hidden');
+}
+$('guide-close').onclick = () => {
+  $('guide').classList.add('hidden');
+  try {
+    localStorage.setItem(GUIDE_KEY, '1');
+  } catch {
+    // без хранилища инструкция просто покажется снова
+  }
+};
+$('guide-open').onclick = showGuide;
+try {
+  if (!localStorage.getItem(GUIDE_KEY)) showGuide();
+} catch {
+  showGuide();
+}
+
 renderPhrases();
 renderSettings();
+renderPresetNote();
+loadLipsPreset();
 showNurseUrls().then(listenForNurse);
 checkNeural();
 if (IS_LOCAL) setInterval(checkNeural, 5000);

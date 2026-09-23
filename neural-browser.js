@@ -82,9 +82,16 @@ function embed(rois, times) {
   return p;
 }
 
+// Стартовый набор (записи автора) не участвует для фраз, которые человек уже откалибровал сам.
+function active(lang) {
+  const own = new Map();
+  for (const it of items) if (it.lang === lang && !it.preset) own.set(it.label, (own.get(it.label) || 0) + 1);
+  return items.filter((it) => it.lang === lang && !(it.preset && (own.get(it.label) || 0) >= 3));
+}
+
 function prepared(lang) {
   if (cache?.lang === lang) return cache;
-  const mine = items.filter((it) => it.lang === lang);
+  const mine = active(lang);
   const mu = new Float32Array(DIM);
   let n = 0;
   for (const it of mine) {
@@ -178,13 +185,46 @@ export function evaluate(lang) {
 
 export async function clear(lang, label = null) {
   const drop = items.filter((it) => (lang === null || it.lang === lang) && (label === null || it.label === label));
-  await Promise.all(drop.map((it) => dbDelete(it.id)));
+  await Promise.all(drop.filter((it) => !it.preset).map((it) => dbDelete(it.id)));
   items = items.filter((it) => !drop.includes(it));
   cache = null;
 }
 
 export function count() {
   return items.length;
+}
+
+export function ownCount() {
+  return items.filter((it) => !it.preset).length;
+}
+
+function half(h) {
+  const sign = h & 0x8000 ? -1 : 1;
+  const e = (h >> 10) & 0x1f;
+  const f = h & 0x3ff;
+  if (e === 0) return sign * 2 ** -14 * (f / 1024);
+  if (e === 31) return f ? NaN : sign * Infinity;
+  return sign * 2 ** (e - 15) * (1 + f / 1024);
+}
+
+export async function loadPreset(base) {
+  if (items.some((it) => it.preset)) return;
+  const [index, bin] = await Promise.all([
+    fetch(new URL('neural-ru.json', base)).then((r) => r.json()),
+    fetch(new URL('neural-ru.bin', base)).then((r) => r.arrayBuffer()),
+  ]);
+  for (const it of index) {
+    const raw = new Uint16Array(bin, it.offset, it.T * DIM);
+    const feats = new Float32Array(raw.length);
+    for (let i = 0; i < raw.length; i++) feats[i] = half(raw[i]);
+    items.push({ lang: it.lang, label: it.label, T: it.T, feats, preset: true });
+  }
+  cache = null;
+}
+
+export function dropPreset() {
+  items = items.filter((it) => !it.preset);
+  cache = null;
 }
 
 // ---------- IndexedDB ----------

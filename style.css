@@ -214,6 +214,22 @@ button, input { font: inherit; color: inherit; }
 .check input { accent-color: var(--ink); margin-top: 3px; }
 .text-input { display: block; width: 100%; margin-top: 4px; padding: 8px 10px; border: 1px solid var(--rule); background: var(--sheet); }
 
+.preset-note { border-left: 4px solid var(--ask); background: var(--ask-soft); padding: 10px 12px; font-size: 14px; color: var(--ink-2); }
+.preset-note .link { display: block; margin-top: 6px; }
+#guide-open { font-size: 14px; }
+
+.guide {
+  position: fixed; inset: 0; z-index: 12; display: flex; align-items: center; justify-content: center;
+  background: rgba(26, 26, 24, .5); padding: 16px;
+}
+.guide-box { background: var(--sheet); border-top: 6px solid var(--ink); max-width: 640px; padding: 26px 32px 28px; max-height: 92vh; overflow: auto; }
+.guide-kicker { font-family: var(--mono); font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+.guide h2 { font-size: 30px; margin: 6px 0 14px; }
+.guide ol { margin: 0 0 14px; padding-left: 22px; }
+.guide li { margin-bottom: 10px; line-height: 1.45; color: var(--ink-2); }
+.guide li b { color: var(--ink); }
+.guide-note { font-size: 13px; color: var(--muted); margin: 0 0 18px; }
+
 /* ---------- urgent alert ---------- */
 .alert {
   position: fixed; inset: 0; z-index: 10;

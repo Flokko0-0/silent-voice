@@ -35,6 +35,7 @@
       </div>
     </dl>
 
+    <button id="guide-open" class="link">Как проверить</button>
     <div class="lang-switch" role="group" aria-label="Язык">
       <button data-lang="ru" class="active">Рус</button>
       <button data-lang="kk">Қаз</button>
@@ -89,7 +90,7 @@
         </section>
         <section class="block">
           <h3>Пост медсестры</h3>
-          <p class="hint">Открыть на телефоне в той же сети Wi-Fi:</p>
+          <p class="hint">Откройте на телефоне медсестры:</p>
           <pre id="nurse-urls" class="nurse-urls">…</pre>
         </section>
         <section class="block">
@@ -99,6 +100,10 @@
       </div>
 
       <div data-pane="calib" class="pane hidden">
+        <div id="preset-note" class="preset-note hidden">
+          Сейчас работает стартовый набор: записи автора прототипа. У другого человека губы двигаются иначе, поэтому для точности запишите свои фразы — по 3 раза, около двух минут. Как только у фразы будет 3 ваших записи, стартовый набор для неё отключится.
+          <button id="preset-off" class="link">Убрать стартовый набор</button>
+        </div>
         <p class="hint">Пациент беззвучно произносит каждую фразу несколько раз. Система подстраивается под конкретного человека, поэтому работает на русском, казахском и любом другом языке.</p>
         <div class="row">
           <button id="wizard-btn" class="primary">Пройти калибровку</button>
@@ -168,6 +173,21 @@
       <div id="alert-text" class="alert-text"></div>
       <div class="alert-sub">Сигнал отправлен на пост медсестры</div>
       <button id="alert-close" class="primary">Принято</button>
+    </div>
+  </div>
+
+  <div id="guide" class="guide hidden" role="dialog" aria-labelledby="guide-title">
+    <div class="guide-box">
+      <div class="guide-kicker">Прототип · VentureHack 2026 · MedTech</div>
+      <h2 id="guide-title">Как проверить за минуту</h2>
+      <ol>
+        <li><b>Разрешите камеру</b> и посмотрите в неё с сомкнутыми губами две секунды. Нейросеть загружается в фоне, прогресс виден в шапке.</li>
+        <li><b>Покажите открытую ладонь</b> и подержите секунду: сработает «Позовите врача» и тревога. Кулак — «Мне больно». Жесты работают у любого человека сразу.</li>
+        <li><b>Беззвучно и чётко скажите губами</b> «Хочу пить» или «Позовите врача». Система переспросит — покажите большой палец вверх, фраза прозвучит вслух. Пока работает стартовый набор автора; для точности откалибруйте фразы под себя на вкладке «Калибровка».</li>
+        <li><b>Пост медсестры:</b> на вкладке «Разговор» есть код палаты и ссылка — откройте её на телефоне, тревога придёт туда.</li>
+      </ol>
+      <p class="guide-note">Видео не покидает устройство. Лучше всего работает в Chrome или Edge на ноутбуке, при хорошем свете, лицом к камере.</p>
+      <button id="guide-close" class="primary">Начать</button>
     </div>
   </div>
 
