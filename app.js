@@ -800,7 +800,8 @@ async function evaluate() {
   const mode = neuralMode();
   if (mode) {
     try {
-      const r = mode === 'server' ? await neuralCall('/evaluate', { lang: state.lang }) : nb.evaluate(state.lang);
+      $('neural-eval').textContent = 'Нейросеть: считаю…';
+      const r = mode === 'server' ? await neuralCall('/evaluate', { lang: state.lang }) : await nb.evaluate(state.lang);
       const el = $('neural-eval');
       el.textContent = r.total
         ? `Нейросеть: ${Math.round((100 * r.correct) / r.total)}% (${r.correct} из ${r.total})`
@@ -809,6 +810,8 @@ async function evaluate() {
       toast(`Нейросеть: ${err.message}`);
     }
   }
+  $('eval-result').textContent = 'Считаю…';
+  await new Promise((r) => setTimeout(r, 30));
   const { correct, total, correctDists, mistakes } = recognizer.evaluate();
   const el = $('eval-result');
   if (!total) {
