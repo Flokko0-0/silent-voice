@@ -865,7 +865,7 @@ function drawBrandLips(feat) {
     pts.map(map).forEach(([x, y], i) => (i ? brandCtx.lineTo(x, y) : brandCtx.moveTo(x, y)));
     brandCtx.closePath();
   };
-  brandCtx.strokeStyle = '#1a1a18';
+  brandCtx.strokeStyle = '#f3f1ec';
   brandCtx.lineJoin = 'round';
   brandCtx.lineWidth = 3;
   poly(feat.outer);
@@ -980,7 +980,24 @@ function renderPhrases() {
   }
 }
 
+// Браслет: код палаты и штрихкод-рисунок, собранный из его цифр.
+function renderBand() {
+  const code = ensureRoomCode();
+  $('band-room').textContent = formatRoom(code);
+  let seed = Number(code) + 7;
+  const rnd = () => ((seed = (seed * 48271) % 2147483647) / 2147483647);
+  let x = 2;
+  let bars = '';
+  while (x < 118) {
+    const w = 1 + Math.floor(rnd() * 3);
+    bars += `<rect x="${x}" y="0" width="${w}" height="30" fill="#1a1a18"/>`;
+    x += w + 1 + Math.floor(rnd() * 2);
+  }
+  $('band-code').innerHTML = bars;
+}
+
 function renderSettings() {
+  renderBand();
   const s = state.settings;
   $('start-thr').value = s.startThr;
   $('end-thr').value = s.endThr;

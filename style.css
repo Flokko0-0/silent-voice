@@ -38,29 +38,40 @@ button, input { font: inherit; color: inherit; }
   font-weight: 700;
 }
 
-/* ---------- top bar ---------- */
-.topbar {
-  display: flex;
-  align-items: flex-end;
-  gap: 40px;
-  padding: 18px 32px 14px;
-  border-bottom: 2px solid var(--rule-strong);
-  background: var(--sheet);
+/* ---------- шапка-браслет пациента ---------- */
+.band-wrap {
+  display: flex; align-items: center; gap: 24px;
+  padding: 16px 32px 0; max-width: 1440px; margin: 0 auto;
 }
-/* название справа, а логотип — контур губ того, кто сейчас перед камерой */
-.brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: inherit; padding-left: 20px; border-left: 1px solid var(--rule); }
-.brand-lips { width: 48px; height: 26px; }
-.brand-name { display: block; font-size: 16px; font-weight: 700; line-height: 1.1; }
-.brand-sub { display: block; font-size: 12px; color: var(--muted); }
-
-.meta { display: flex; gap: 32px; margin: 0; flex: 1; }
-.meta div { border-left: 1px solid var(--rule); padding-left: 12px; }
-.meta dt { color: var(--muted); }
-.meta dd { margin: 2px 0 0; font-weight: 700; font-size: 15px; }
+.band {
+  flex: 1; min-width: 0; display: flex; align-items: stretch;
+  background: var(--sheet); border: 1px solid var(--ink); border-radius: 40px; overflow: hidden;
+  position: relative;
+}
+.clasp {
+  flex: none; width: 88px; display: grid; place-items: center;
+  background: var(--ink); border-right: 3px double var(--sheet);
+}
+.brand-lips { width: 52px; height: 28px; }
+.band-print {
+  position: absolute; left: 104px; right: 150px; bottom: 3px;
+  font-size: 9px; letter-spacing: .3em; text-transform: uppercase; color: var(--rule);
+  white-space: nowrap; overflow: hidden; pointer-events: none;
+}
+.band-fields { display: flex; align-items: center; gap: 26px; margin: 0; padding: 12px 20px 16px; flex: 1; min-width: 0; }
+.band-fields > div { min-width: 0; }
+.band-fields dt { font-size: 11px; letter-spacing: .09em; text-transform: uppercase; font-weight: 700; color: var(--muted); }
+.band-fields dd { margin: 2px 0 0; font-weight: 700; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.band-name dd { font-size: 22px; line-height: 1.1; }
+.mono { font-family: var(--mono); font-weight: 400 !important; letter-spacing: .04em; }
+.band-barcode svg { width: 120px; height: 30px; display: block; }
 #neural-badge { color: var(--signal); }
 #neural-badge.off { color: var(--ink-2); }
 #status.ok { color: var(--signal); }
 #status.warn { color: var(--ask); }
+.band-holes { flex: none; display: flex; align-items: center; gap: 10px; padding: 0 22px 0 8px; }
+.band-holes i { width: 9px; height: 9px; border-radius: 50%; border: 1px solid var(--muted); background: var(--paper); }
+.band-tools { display: flex; align-items: center; gap: 16px; flex: none; }
 
 .lang-switch { display: flex; border: 1px solid var(--ink); }
 .lang-switch button { border: 0; background: transparent; padding: 6px 14px; cursor: pointer; font-weight: 700; }
@@ -260,12 +271,15 @@ button, input { font: inherit; color: inherit; }
   background: var(--ink); color: var(--sheet); padding: 10px 16px; font-size: 14px;
 }
 
-@media (max-width: 1150px) {
-  .meta div:nth-child(n + 3) { display: none; }
+@media (max-width: 1250px) {
+  .band-fields > div:nth-child(n + 5) { display: none; }
+  .band-holes { display: none; }
 }
 @media (max-width: 900px) {
   .layout { grid-template-columns: 1fr; padding: 16px; }
-  .topbar { flex-wrap: wrap; gap: 16px; padding: 14px 16px; }
-  .meta { order: 3; flex-basis: 100%; }
+  .band-wrap { flex-wrap: wrap; padding: 12px 16px 0; }
+  .band { flex-basis: 100%; }
+  .band-fields > div:nth-child(n + 3) { display: none; }
+  .band-print { display: none; }
   .output-text { font-size: 38px; }
 }

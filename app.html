@@ -10,38 +10,46 @@
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <header class="topbar">
-    <dl class="meta">
-      <div>
-        <dt>Пациент</dt>
-        <dd id="patient-chip-name">—</dd>
-      </div>
-      <div>
-        <dt>Отделение</dt>
-        <dd id="patient-chip-ward">—</dd>
-      </div>
-      <div>
-        <dt>Распознавание</dt>
-        <dd id="neural-badge" class="off">точки губ</dd>
-      </div>
-      <div>
-        <dt>Состояние</dt>
-        <dd id="status">загрузка</dd>
-      </div>
-    </dl>
-
-    <button id="guide-open" class="link">Обучение</button>
-    <div class="lang-switch" role="group" aria-label="Язык">
-      <button data-lang="ru" class="active">Рус</button>
-      <button data-lang="kk">Қаз</button>
+  <header class="band-wrap">
+    <div class="band">
+      <a class="clasp" href="index.html" title="О проекте «Беззвучный голос»">
+        <canvas id="brand-lips" class="brand-lips" width="96" height="52" aria-hidden="true"></canvas>
+      </a>
+      <div class="band-print" aria-hidden="true">Беззвучный голос · Үнсіз дауыс</div>
+      <dl class="band-fields">
+        <div class="band-name">
+          <dt>Пациент</dt>
+          <dd id="patient-chip-name">—</dd>
+        </div>
+        <div>
+          <dt>Отделение</dt>
+          <dd id="patient-chip-ward">—</dd>
+        </div>
+        <div>
+          <dt>Код палаты</dt>
+          <dd id="band-room" class="mono">—</dd>
+        </div>
+        <div class="band-barcode" title="Рисунок собран из кода палаты (декоративный, не сканируется)">
+          <svg id="band-code" viewBox="0 0 120 30" preserveAspectRatio="none" aria-hidden="true"></svg>
+        </div>
+        <div>
+          <dt>Распознавание</dt>
+          <dd id="neural-badge" class="off">точки губ</dd>
+        </div>
+        <div>
+          <dt>Состояние</dt>
+          <dd id="status">загрузка</dd>
+        </div>
+      </dl>
+      <div class="band-holes" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
     </div>
-    <a class="brand" href="index.html" title="О проекте">
-      <canvas id="brand-lips" class="brand-lips" width="96" height="52" aria-hidden="true"></canvas>
-      <span>
-        <span class="brand-name">Беззвучный голос</span>
-        <span class="brand-sub">Үнсіз дауыс</span>
-      </span>
-    </a>
+    <div class="band-tools">
+      <button id="guide-open" class="link">Обучение</button>
+      <div class="lang-switch" role="group" aria-label="Язык">
+        <button data-lang="ru" class="active">Рус</button>
+        <button data-lang="kk">Қаз</button>
+      </div>
+    </div>
   </header>
 
   <main class="layout">
