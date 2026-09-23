@@ -308,6 +308,7 @@ function loop() {
   const roi = neural.available || browserNet.ready ? cropMouth(video, landmarks) : null;
   stepSegmenter(rel, now, roi);
   drawLips(feat, seg.active ? '#f0a020' : '#ffffff');
+  drawBrandLips(feat);
   renderMeter(activity);
   if (!armed) setStatus(seg.active ? 'Слушаю губы…' : 'Готов', seg.active ? 'warn' : 'ok');
 }
@@ -845,6 +846,43 @@ function drawLips(feat, color) {
   poly(feat.inner);
   ctx.stroke();
 }
+
+// Логотип в шапке повторяет контур губ человека перед камерой.
+const brandCanvas = $('brand-lips');
+const brandCtx = brandCanvas.getContext('2d');
+function drawBrandLips(feat) {
+  const { width: W, height: H } = brandCanvas;
+  brandCtx.clearRect(0, 0, W, H);
+  const xs = feat.outer.map((p) => p[0]);
+  const ys = feat.outer.map((p) => p[1]);
+  const minX = Math.min(...xs);
+  const maxX = Math.max(...xs);
+  const midY = (Math.min(...ys) + Math.max(...ys)) / 2;
+  const k = (W - 8) / (maxX - minX || 1);
+  const map = ([x, y]) => [W - 4 - (x - minX) * k, H / 2 + (y - midY) * k];
+  const poly = (pts) => {
+    brandCtx.beginPath();
+    pts.map(map).forEach(([x, y], i) => (i ? brandCtx.lineTo(x, y) : brandCtx.moveTo(x, y)));
+    brandCtx.closePath();
+  };
+  brandCtx.strokeStyle = '#1a1a18';
+  brandCtx.lineJoin = 'round';
+  brandCtx.lineWidth = 3;
+  poly(feat.outer);
+  brandCtx.stroke();
+  brandCtx.lineWidth = 2;
+  poly(feat.inner);
+  brandCtx.stroke();
+}
+
+// До включения камеры — спокойные сомкнутые губы.
+(function drawBrandIdle() {
+  const t = [-1, -0.7, -0.4, -0.15, 0, 0.15, 0.4, 0.7, 1];
+  const top = t.map((x) => [x, -0.3 * Math.sqrt(1 - x * x) + 0.08 * Math.exp(-((x / 0.15) ** 2))]);
+  const bottom = t.slice(1, -1).reverse().map((x) => [x, 0.35 * Math.sqrt(1 - x * x)]);
+  const line = t.map((x) => [x, 0.02 * (1 - x * x)]);
+  drawBrandLips({ outer: [...top, ...bottom], inner: [...line, ...line.slice().reverse()] });
+})();
 
 function renderMeter(value) {
   const max = state.settings.startThr * 2;
