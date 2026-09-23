@@ -608,6 +608,7 @@ function cancelPending() {
 
 function say(phrase, via = LIPS_SOURCE) {
   cancelPending();
+  tourEvent(via === GESTURE_SOURCE ? 'gesture' : 'lips');
   const text = phraseText(phrase);
   showOutput(text, { urgent: phrase.urgent, source: via });
   addHistory(text, phrase.urgent, via);
@@ -1177,24 +1178,98 @@ $('preset-off').onclick = () => {
   renderPresetNote();
 };
 
-// Короткая инструкция при первом входе, чтобы проверить прототип за минуту.
-const GUIDE_KEY = 'silent-voice-guide-seen';
-function showGuide() {
-  $('guide').classList.remove('hidden');
-}
-$('guide-close').onclick = () => {
-  $('guide').classList.add('hidden');
+// ---------- обучение ----------
+// Запускается только по кнопке. Шаги с действием засчитываются сами, когда человек его выполнил.
+const TOUR_KEY = 'silent-voice-tour-seen';
+const TOUR = [
+  {
+    target: '.stage',
+    title: 'Камера',
+    text: 'Сядьте лицом к свету, чтобы лицо было в кадре. Две секунды держите губы сомкнутыми — система запомнит их в покое. Контур губ появится на видео.',
+  },
+  {
+    target: '.gestures',
+    title: 'Жест рукой',
+    text: 'Покажите открытую ладонь и подержите секунду. Сработает «Позовите врача» и тревога. Жесты работают у любого человека без настройки.',
+    waitFor: 'gesture',
+  },
+  {
+    target: '.output',
+    title: 'Фраза губами',
+    text: 'Беззвучно и чётко скажите губами «Хочу пить» и замолчите. Система переспросит — покажите большой палец вверх, и фраза прозвучит вслух.',
+    waitFor: 'lips',
+  },
+  {
+    target: '#nurse-urls',
+    title: 'Пост медсестры',
+    text: 'Откройте эту ссылку на телефоне. Срочные фразы придут туда со звуком, а ответ «Иду» вернётся на этот экран.',
+    tab: 'talk',
+  },
+  {
+    target: '.tabs button[data-tab="calib"]',
+    title: 'Точнее под себя',
+    text: 'Сейчас работает стартовый набор автора. На вкладке «Калибровка» запишите свои фразы по 3 раза — около двух минут, — и точность вырастет.',
+  },
+];
+let tourStep = -1;
+let tourTimer = 0;
+
+function markSeen() {
   try {
-    localStorage.setItem(GUIDE_KEY, '1');
+    localStorage.setItem(TOUR_KEY, '1');
   } catch {
-    // без хранилища инструкция просто покажется снова
+    // без хранилища приглашение просто покажется снова
   }
-};
-$('guide-open').onclick = showGuide;
+  $('tour-invite').classList.add('hidden');
+}
+
+function showTourStep(i) {
+  document.querySelectorAll('.tour-target').forEach((el) => el.classList.remove('tour-target'));
+  clearTimeout(tourTimer);
+  tourStep = i;
+  if (i < 0 || i >= TOUR.length) {
+    $('tour').classList.add('hidden');
+    tourStep = -1;
+    return;
+  }
+  const step = TOUR[i];
+  if (step.tab) document.querySelector(`.tabs button[data-tab="${step.tab}"]`)?.click();
+  $('tour-step').textContent = `шаг ${i + 1} из ${TOUR.length}`;
+  $('tour-title').textContent = step.title;
+  $('tour-text').textContent = step.text;
+  $('tour-done').classList.add('hidden');
+  $('tour-back').classList.toggle('hidden', i === 0);
+  $('tour-next').textContent = i === TOUR.length - 1 ? 'Готово' : step.waitFor ? 'Пропустить' : 'Дальше';
+  const target = document.querySelector(step.target);
+  if (target) {
+    target.classList.add('tour-target');
+    target.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }
+  $('tour').classList.remove('hidden');
+}
+
+function tourEvent(kind) {
+  if (tourStep < 0 || TOUR[tourStep].waitFor !== kind) return;
+  $('tour-done').classList.remove('hidden');
+  $('tour-next').textContent = 'Дальше';
+  tourTimer = setTimeout(() => showTourStep(tourStep + 1), 1800);
+}
+
+function startTour() {
+  markSeen();
+  showTourStep(0);
+}
+
+$('guide-open').onclick = startTour;
+$('tour-invite-start').onclick = startTour;
+$('tour-invite-close').onclick = markSeen;
+$('tour-next').onclick = () => showTourStep(tourStep + 1);
+$('tour-back').onclick = () => showTourStep(tourStep - 1);
+$('tour-skip').onclick = () => showTourStep(-1);
 try {
-  if (!localStorage.getItem(GUIDE_KEY)) showGuide();
+  if (!localStorage.getItem(TOUR_KEY)) $('tour-invite').classList.remove('hidden');
 } catch {
-  showGuide();
+  $('tour-invite').classList.remove('hidden');
 }
 
 renderPhrases();

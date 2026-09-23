@@ -35,7 +35,7 @@
       </div>
     </dl>
 
-    <button id="guide-open" class="link">Как проверить</button>
+    <button id="guide-open" class="link">Обучение</button>
     <div class="lang-switch" role="group" aria-label="Язык">
       <button data-lang="ru" class="active">Рус</button>
       <button data-lang="kk">Қаз</button>
@@ -176,18 +176,21 @@
     </div>
   </div>
 
-  <div id="guide" class="guide hidden" role="dialog" aria-labelledby="guide-title">
-    <div class="guide-box">
-      <div class="guide-kicker">Прототип · VentureHack 2026 · MedTech</div>
-      <h2 id="guide-title">Как проверить за минуту</h2>
-      <ol>
-        <li><b>Разрешите камеру</b> и посмотрите в неё с сомкнутыми губами две секунды. Нейросеть загружается в фоне, прогресс виден в шапке.</li>
-        <li><b>Покажите открытую ладонь</b> и подержите секунду: сработает «Позовите врача» и тревога. Кулак — «Мне больно». Жесты работают у любого человека сразу.</li>
-        <li><b>Беззвучно и чётко скажите губами</b> «Хочу пить» или «Позовите врача». Система переспросит — покажите большой палец вверх, фраза прозвучит вслух. Пока работает стартовый набор автора; для точности откалибруйте фразы под себя на вкладке «Калибровка».</li>
-        <li><b>Пост медсестры:</b> на вкладке «Разговор» есть код палаты и ссылка — откройте её на телефоне, тревога придёт туда.</li>
-      </ol>
-      <p class="guide-note">Видео не покидает устройство. Лучше всего работает в Chrome или Edge на ноутбуке, при хорошем свете, лицом к камере.</p>
-      <button id="guide-close" class="primary">Начать</button>
+  <div id="tour-invite" class="tour-invite hidden">
+    <span>Впервые здесь? Обучение займёт минуту.</span>
+    <button id="tour-invite-start" class="primary">Начать</button>
+    <button id="tour-invite-close" class="link" aria-label="Скрыть">скрыть</button>
+  </div>
+
+  <div id="tour" class="tour hidden" role="dialog" aria-live="polite">
+    <div class="tour-step" id="tour-step"></div>
+    <h3 id="tour-title"></h3>
+    <p id="tour-text"></p>
+    <p id="tour-done" class="tour-done hidden">Получилось</p>
+    <div class="tour-actions">
+      <button id="tour-back" class="link">назад</button>
+      <button id="tour-skip" class="link">закрыть</button>
+      <button id="tour-next" class="primary">Дальше</button>
     </div>
   </div>
 
